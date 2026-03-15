@@ -1,0 +1,3 @@
+monster-1 are 75x75
+monster-2 are 62x62
+
