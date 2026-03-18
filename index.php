@@ -50,11 +50,11 @@ include 'includes/header.php';
             <div class="bc-img">
                 <img src="/images/cards/legion_forge.jpg" alt="War Table">
             </div>
-            <h2>Legion Forge</h2>
-            <p>Build optimized battle squads.</p>
+            <h2>Hunting Parties</h2>
+            <p>Pre-defined attack formations.</p>
             <ul>
-                <li>Squad builder</li>
-                <li>Troop combinations</li>
+                <li>Creature Count</li>
+                <li>Troop Combinations</li>
                 <li>Kill Shot Calculator</li>                
             </ul>
         </a>

@@ -620,71 +620,6 @@ footer {
     background: #1c4ea5;
   }
 
-  /* ============================= */
-/* DASHBOARD LAYOUT FOUNDATION   */
-/* ============================= */
-
-
-.page-container-monster {
-  flex: 0 0 auto;
-  width: 80%;
-  margin: 0 auto;
-  box-sizing: border-box;
-}
-
-/* ---- ROW SYSTEM ---- */
-.row {
-    display: flex;
-    gap: 20px;
-    margin-top: 20px;
-}
-
-/* IMPORTANT: remove wrapping for strict 50/50 rows */
-.row.no-wrap {
-    flex-wrap: nowrap;
-}
-
-/* ---- CARD ---- */
-.card {
-    background: #ffffff;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-}
-
-/* remove auto-flex behavior */
-.card.flex-fill {
-    flex: 1;
-}
-
-.card h3 {
-    margin-top: 0;
-}
-
-/* ---- COLUMN WIDTHS ---- */
-
-.col-2 {
-    flex: 0 0 calc(25% - 14px);
-}
-
-.col-6 {
-    flex: 0 0 calc(50% - 10px);
-}
-
-.col-4 {
-    flex: 0 0 calc(33.333% - 14px);
-}
-
-.col-12 {
-    flex: 0 0 100%;
-}
-
-.troop-grid{
-  display:flex;
-  justify-content:center;
-  width: 100%;
-}
-
 /* ============================= */
 /* REWARDS INLINE STATS          */
 /* ============================= */
@@ -736,6 +671,7 @@ footer {
     padding: 8px 12px 8px 28px; /* left padding for caret */
     margin-bottom: 8px;
     background: #fafafa;
+    width: 100%;
 }
 
 /* 4-column grid */
@@ -862,14 +798,36 @@ main {
     background:#fff;
 }
 
-/* sticky header 
-.monster-table thead th{
-    position:sticky;
-    top:0;
-    background:#f2f2f2;
-    z-index:10;
+.squad-image-container {
+    display: flex;               /* Arrange items side by side */
+    align-items: stretch;        /* Make both sides equal height */
+    max-width: 500px;
+    padding: 10px;
+    gap: 15px;                    /* Space between image and text */
+  }
+
+.squad-image-container img {
+	width: 85px;
+	height: auto;
+	object-fit: cover;            /* Keep image proportion */
 }
-*/
+
+.squad-text-block {
+	display: flex;
+	flex-direction: column;       /* Stack text vertically */
+	/* justify-content: space-between; /* Push one line to top, one to bottom */
+	flex: 1;                       /* Take remaining space */
+}
+
+.reward-text-top {
+	font-weight: bold;
+	font-size: 1.1em;
+}
+
+.reward-text-bottom {
+	color: #555;
+	font-size: 0.8em;
+}
 
 /* top title + save button */
 .topbar{
@@ -963,7 +921,7 @@ margin-right:4px;
 
 .monster-summary{
 display:grid;
-grid-template-columns: 150px 80px 80px auto;
+grid-template-columns: 150px 100px 150px auto;
 align-items:center;
 gap:10px;
 }
@@ -1226,20 +1184,8 @@ opacity:.6;
     font-weight: 600;
 }
 
-/* new index page  
-
-.bc-container{
-    height:calc(100vh - 120px);
-    padding:18px;
-    max-width:1400px;
-    margin:auto;
-}
-*/
-
-
-
-
-.bc-container {
+/* new index page  */
+.bc-container {                    
     display: flex;
     flex-direction: column;
     justify-content: flex-start;   /* top-align container contents */
@@ -1331,4 +1277,78 @@ opacity:.6;
 
 .tavern{
     border:1px solid #b98c2a;
+}
+
+/* ============================= */
+/* DASHBOARD LAYOUT FOUNDATION   */
+/* ============================= */
+
+
+.page-container-monster {
+  flex: 0 0 auto;
+  width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.page-container-monster h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.rarity-group {
+    /*display: flex;*/
+    gap: 15px;
+    margin-bottom: 12px;
+}
+
+.squad-select select {
+    /*width: 100%;*/
+    padding: 6px;
+}
+/* ---- ROW SYSTEM ---- */
+.row {
+    display: flex;
+    /*flex-wrap: wrap;*/
+    gap: 20px;
+    margin-top: 20px;
+    justify-content: center;
+
+}
+
+/* IMPORTANT: remove wrapping for strict 50/50 rows */
+.row.no-wrap {
+    flex-wrap: nowrap;
+}
+
+/* ---- CARD ---- */
+.card {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    text-align: center;
+}
+
+/* remove auto-flex behavior */
+.card.flex-fill {
+    flex: 1;
+}
+
+.card h3 {
+    margin-top: 0;
+}
+
+/* ---- COLUMN WIDTHS ---- */
+.col-2 { flex: 0 0 25%; }
+.col-4 { flex: 0 0 33.333%; }
+.col-6 { flex: 0 0 50%; }
+.col-7 { flex: 0 0 66.666%; }
+.col-8 { flex: 0 0 75%; }
+.col-12 { flex: 0 0 100%; }
+
+.troop-grid{
+  display:flex;
+  justify-content:center;
+  width: 100%;
 }
