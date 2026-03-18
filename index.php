@@ -19,11 +19,11 @@ include 'includes/header.php';
         </a>
 
         <!-- War Table -->
-        <a href="#" class="bc-card">
+        <a href="/monster_hunt.php" class="bc-card">
             <div class="bc-img">
                 <img src="/images/cards/war_table.jpg" alt="War Table">
             </div>
-            <h2>War Table</h2>
+            <h2>Hunt Monsters</h2>
             <p>Plan hunts and calculate attacks.</p>
             <ul>
                 <li>Monster hunt planner</li>

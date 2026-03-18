@@ -68,12 +68,9 @@ if(!in_array($rarity, ['Common','Rare'])) $rarity = 'Common';
 $selectedSquad = $_GET['squadID'] ?? '';
 $playerLevel   = isset($_GET['playerLevel']) ? (int)$_GET['playerLevel'] : 6;
 
-$unitType        = $_GET['unitType'] ?? '';
+$useFighters  = isset($_GET['useFighters']);
 
-$useFighters     = ($unitType === 'fighters');
-$useCreatures    = ($unitType === 'creatures');
-$useMercs        = ($unitType === 'mercs');
-$useSpecialists  = ($unitType === 'specialists');
+$useCreatures = isset($_GET['useCreatures']);
 
 $buildPlan       = isset($_GET['buildPlan']);
 
@@ -184,21 +181,14 @@ if($buildPlan){
         $units = array_merge($units, getFighters($pdo,$playerLevel,'Reg'));
     }
 
-    if($useSpecialists){
-        $units = array_merge($units, getFighters($pdo,$playerLevel,'Spc'));
-    }
-
     if($useCreatures){
         $units = array_merge($units, fetchAll($pdo,"
-            SELECT name,type,level,strength,health,'creature' AS unit_class
-            FROM creature WHERE level <= ?
-        ",[$playerLevel]));
-    }
-
-    if($useMercs){
-        $units = array_merge($units, fetchAll($pdo,"
-            SELECT name,type,level,strength,health,'merc' AS unit_class
-            FROM merc WHERE level <= ?
+            SELECT c.name, c.type, c.level, c.strength, c.health,
+            'creature' AS unit_class, cb.bonus_percent, cb.bonus_against
+            FROM creature c 
+            JOIN creature_bonus cb on cb.creatureID =c.creatureID
+            WHERE level = ?
+            LIMIT 2
         ",[$playerLevel]));
     }
 }
@@ -217,12 +207,13 @@ if($buildPlan && $selectedSquad && $monsters){
     foreach($monsters as $m){
         foreach($weak as $k=>$_){
             $weak[$k] += $m["bonus_".strtolower($k)];
+            
         }
     }
 
     foreach($weak as $k=>$v){
         $weak[$k] = round($v / max(count($monsters),1));
-        $counterSignal[$k] = $v == 0 ? 'green' : ($v > 40 ? 'red' : 'yellow');
+        $counterSignal[$k] = $v == 0 ? 'green' : ($v > 50 ? 'red' : 'yellow');
     }
 
     $scores = [];
@@ -239,11 +230,19 @@ if($buildPlan && $selectedSquad && $monsters){
 
     usort($scores, fn($a,$b) => $b['score'] <=> $a['score']);
 
-    $groups = array_chunk(array_slice($scores,0,12),3);
+    //$groups = array_chunk(array_slice($scores,0,12),3);
+    $groups = array_chunk(array_slice($scores,0,12),1);
+
 
     foreach($groups as $g){
         $attackGroups[] = $g;
         if(count($attackGroups)>=4) break;
+/*
+echo '<pre>';
+print_r($scores);
+echo '</pre>';
+echo '<br>';
+*/
     }
 }
 
@@ -277,13 +276,12 @@ $imagePath = resolveSquadImage($squadStats ?? []);
 ?>
 
 <main>
-
   <div class="page-container-monster">
 
       <h1>Monster Squad Dashboard</h1>
       <form method="GET">
           <div class="row">
-              <div class="col-4"> <!-- monster selection -->
+              <div class="col-6"> <!-- monster selection -->
                   <div class="card">
                       <h3>Monster Selection</h3>
                       <!-- Rarity -->
@@ -318,108 +316,25 @@ $imagePath = resolveSquadImage($squadStats ?? []);
                               <?php endforeach; ?>
                           </select>
                       </div>
+                      <div class="squad-explain" style='padding-top:10px;'>
+                        <label name="squad-info" id="squad-info"><br /><b>This is NOT a stack calc</b><br /><br />It is meant for Monsters on the World Map
+                          <!--
+                          <ul>
+                            <li>Select Common/Rare</li>
+                            <li>Pick A Monster Squad</li>
+                            <li>Select Attack Units</li>
+                            <li>Use Dashboard to dermine best Attack Group</li>
+                          </ul>
+                          -->
+                        </label>
+
+                      </div>
                   </div>
               </div>
   <?php if ($selectedSquad && $squadStats): ?>   <!-- squad form -->           
-            <div class="col-7"> <!-- Monster Values -->
-                <div class="card">
-                  <?php
-                    function shortNum($n){
-                        if($n >= 1000000000) return round($n/1000000000,4).' B';
-                        if($n >= 1000000) return round($n/1000000,4).' M';
-                        if($n >= 1000) return round($n/1000,4).' K';
-                        return $n;
-                    }
-
-                  function bonusDot($pct){
-                      if($pct == 0) return "dot-green";
-                      if($pct > 40) return "dot-red";
-                      return "dot-yellow";
-                  }
-                  ?>
-
-                  <!-- right 50% : Squad Rewards -->
-                  <div class="col-12">
-                      <div class="squad-image-container">
-                        <img src="<?= htmlspecialchars($imagePath) ?>"  class="squad-img" alt="<?= htmlspecialchars($squad['name']) ?>">                      
-                        <div class="squad-text-block">
-                          <div class="reward-text-top">
-                            <h3><?= htmlspecialchars($squadStats['rarity']) ?> <?= htmlspecialchars($squadStats['name']) ?> | Level <?= $squadStats['level'] ?></h3>
-                          </div>
-                          <div class="reward-text-bottom">
-                            &nbsp;&nbsp;&nbsp;&nbsp;    
-                            Valor: <?= number_format($squadStats['valor']) ?>
-                            &nbsp;|&nbsp;
-                            Frags: <?= number_format($squadStats['frags']) ?>
-                            &nbsp;|&nbsp;
-                            XP: <?= number_format($squadStats['xp']) ?>
-                          </div>
-                        </div>
-                      </div>
-                              <?php if ($monsters): ?>
-                      <div class="monster-grid">
-
-                      <?php foreach ($monsters as $monster): ?>
-
-                      <?php
-                        $mel = $monster['bonus_mel'] ?? 0;
-                        $mtd = $monster['bonus_mtd'] ?? 0;
-                        $rng = $monster['bonus_rng'] ?? 0;
-                        $fly = $monster['bonus_fly'] ?? 0;
-                        $oth = $monster['bonus_oth'] ?? 0;
-
-                        $monsterTotalHealth = $monster['total_health'];
-                        $monsterHealthList[] = $monsterTotalHealth;
-                      ?>
-
-                      <details class="monster-row">
-
-                        <summary class="monster-summary">
-
-                          <span class="col col-name">
-                          <?= htmlspecialchars($monster['name']) ?>
-                          </span>
-
-                          <span class="col col-hlh">
-                          H: <?= shortNum($monster['total_health']) ?>
-                          </span>
-
-                          <span class="col col-str">
-                          S: <?= shortNum($monster['total_strength']) ?>
-                          </span>
-
-                          <span class="col bonus-col">
-                            <span class="dot <?=bonusDot($mel)?>" title="Mel <?=$mel?>%"></span> Mel
-                            <span class="dot <?=bonusDot($mtd)?>" title="Mtd <?=$mtd?>%"></span> Mtd
-                            <span class="dot <?=bonusDot($rng)?>" title="Rng <?=$rng?>%"></span> Rng
-                            <span class="dot <?=bonusDot($fly)?>" title="Fly <?=$fly?>%"></span> Fly
-                            <span class="dot <?=bonusDot($oth)?>" title="Other <?=$oth?>%"></span> Oth
-                          </span>
-
-                        </summary>
-                        <div class="monster-calc"> <span></span> <span class="col col-bns">
-                          <?= shortNum($monster['quantity']) ?> × <?= shortNum($monster['health']) ?>
-                            </span> 
-                            <span class="col col-bns"> 
-                              <?= shortNum($monster['quantity']) ?> × <?= shortNum($monster['strength']) ?>
-                            </span> 
-                            <span class="bonus-detail"> Mel <?=$mel?>% | Mtd <?=$mtd?>% | Rng <?=$rng?>% | Fly <?=$fly?>% | Oth <?=$oth?>% 
-                            </span> 
-                        </div> 
-                      </details> 
-                      <?php endforeach; ?> 
-                      </div> <?php else: ?> 
-                      <p>No monsters assigned.</p> 
-                      <?php endif; ?> 
-                    </div>
-                  </div>
-                </div>
-
-          </div> 
-      </form>
+      <div class="col-6"> <!-- Monster Values -->
 
     <!-- ROW: Attack Planner -->
-    <div class="row">
       <div class="col-12">
         <div class="card">
           <h3>Attack Planner</h3>
@@ -440,57 +355,175 @@ $imagePath = resolveSquadImage($squadStats ?? []);
                 <?php endfor; ?>
               </select>
 
-              <!-- Captain Capacity -->
-              <label><strong>Captain Max Units</strong></label>
-              <input type="number"
-                class="captMaxUnits troopCap"
-                name="captMaxUnits"
-                value="<?= htmlspecialchars($captMaxUnits ?? '') ?>"
-                placeholder="Future: troop cap">
-
-            </div>
-            <!-- Unit Types old
-            <div class="planner-section">
-              <label><strong>Units Available</strong></label>
+              <!-- Unit Types -->
+              <label><strong>Troops</strong></label>
               <label><input type="checkbox" name="useFighters" value="1" <?= $useFighters ? 'checked' : '' ?>> Fighters</label>
               <label><input type="checkbox" name="useCreatures" value="1" <?= $useCreatures ? 'checked' : '' ?>> Creatures</label>
-              <label><input type="checkbox" name="useMercs" value="1" <?= $useMercs ? 'checked' : '' ?>> Mercs</label>
-              <label><input type="checkbox" name="useSpecialists" value="1" <?= $useSpecialists ? 'checked' : '' ?>> Specialists</label>
-            </div>-->
-            <!-- Unit Types -->
-            <div class="planner-section">
-              <label><strong>Units Available</strong></label>
-              <label>
-                <input type="radio" name="unitType" value="fighters"
-                <?= ($unitType === 'fighters') ? 'checked' : '' ?>
-                onchange="this.form.submit()">
-                  Guardsman
-              </label>
-              <label>
-                <input type="radio" name="unitType" value="creatures"
-                <?= ($unitType === 'creatures') ? 'checked' : '' ?>
-                onchange="this.form.submit()">
-                  Creatures
-              </label>
-              <label>
-                <input type="radio" name="unitType" value="mercs"
-                <?= ($unitType === 'mercs') ? 'checked' : '' ?>
-                onchange="this.form.submit()">
-                  Mercs
-              </label>
-              <label>
-                <input type="radio" name="unitType" value="specialists"
-                <?= ($unitType === 'specialists') ? 'checked' : '' ?>
-                onchange="this.form.submit()">
-                  Specialists
-              </label>
             </div>
-            <!-- Submit -->
-            <div style="margin-top:12px;">
-              <button type="submit" name="buildPlan" value="1">Build Attack Plan</button>
-            </div>
+
+              <!-- Submit -->
+              <small id="unitHint" style="opacity:.6;">Select a unit type to build plan</small>
+              <div style="margin-top:12px;">
+                <button  type="submit" name="buildPlan"  value="1" class="btn-primary" id="buildPlanBtn">
+                  Build Attack Plan
+                </button>
+              </div>
           </form>
-          <!-- Counter Bar -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+      
+  <div class="row">
+    <div class="col-6">
+      <div class="card">
+        <?php
+          function shortNum($n){
+              if($n >= 1000000000) return round($n/1000000000,4).' B';
+              if($n >= 1000000) return round($n/1000000,4).' M';
+              if($n >= 1000) return round($n/1000,4).' K';
+              return $n;
+          }
+
+        function bonusDot($pct){
+            if($pct == 0) return "dot-green";
+            if($pct > 50) return "dot-red";
+            return "dot-yellow";
+        }
+        ?>
+
+        <!-- left 50% : Squad Rewards -->
+      <div class="inner-card">
+          <div class="squad-image-container">
+            <img src="<?= htmlspecialchars($imagePath) ?>"  class="squad-img" alt="<?= htmlspecialchars($squad['name']) ?>">                      
+            <div class="squad-text-block">
+              <div class="reward-text-top">
+                <h3><?= htmlspecialchars($squadStats['rarity']) ?> <?= htmlspecialchars($squadStats['name']) ?> | Level <?= $squadStats['level'] ?></h3>
+              </div>
+              <div class="reward-text-middle"> 
+                <!--Monster Counter Bar -->
+                <?php if(!empty($counterSignal)): ?>
+                  <div class="counter-bar">Damage Mods: 
+                    <?php foreach($counterSignal as $t=>$c): ?>
+                      <span class="counter <?=$c?>"><?=$t?></span>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+              </div>
+
+              <div class="reward-text-bottom">   
+                Valor: <?= shortNum($squadStats['valor']) ?>
+                &nbsp;|&nbsp;
+                Frags: <?= shortNum($squadStats['frags']) ?>
+                &nbsp;|&nbsp;
+                XP: <?= shortNum($squadStats['xp']) ?>
+              </div>
+            </div>
+          </div>
+          <?php if ($monsters): ?>
+            <div class="monster-grid">
+
+            <?php foreach ($monsters as $monster): ?>
+
+            <?php
+              $mel = $monster['bonus_mel'] ?? 0;
+              $mtd = $monster['bonus_mtd'] ?? 0;
+              $rng = $monster['bonus_rng'] ?? 0;
+              $fly = $monster['bonus_fly'] ?? 0;
+              $oth = $monster['bonus_oth'] ?? 0;
+
+              $monsterTotalHealth = $monster['total_health'];
+              $monsterHealthList[] = $monsterTotalHealth;
+            ?>
+
+            <details class="monster-row">
+
+              <summary class="monster-summary">
+
+                <span class="col col-name">
+                <?= htmlspecialchars($monster['name']) ?>
+                </span>
+
+                <span class="col col-qty"> 
+                Qty: <?= shortNum($monster['quantity']) ?> 
+                </span> 
+
+                <span class="col col-hlh">
+                Hth: <?= shortNum($monster['total_health']) ?>
+                </span>
+
+                <span class="col col-str">
+                Str: <?= shortNum($monster['total_strength']) ?>
+                </span>
+              </summary>
+              <div class="monster-calc">
+                <span class="bonus-col">
+                  <span class="dot <?=bonusDot($mel)?>" title="Mel <?=$mel?>%"></span> Mel
+                  <span class="dot <?=bonusDot($mtd)?>" title="Mtd <?=$mtd?>%"></span> Mtd
+                  <span class="dot <?=bonusDot($rng)?>" title="Rng <?=$rng?>%"></span> Rng
+                  <span class="dot <?=bonusDot($fly)?>" title="Fly <?=$fly?>%"></span> Fly
+                  <span class="dot <?=bonusDot($oth)?>" title="Other <?=$oth?>%"></span> Oth
+                </span>
+              </div>
+            </details> 
+          <?php endforeach; ?> 
+          </div> <?php else: ?> 
+          <p>No monsters assigned.</p> 
+          <?php endif; ?> 
+        </div>
+      </div>
+    </div>
+
+    <!-- ROW: Attack Results -->
+      <div class="col-6">
+        <div class="card">
+          <details open class="card-toggle">
+            <summary class="card-title">Attack Formation</summary>
+            <div id="attackResults" class="scroll-box">
+              <?php if($attackGroups): ?>
+                <?php $gnum=1; ?>
+                <?php foreach($attackGroups as $group): ?>
+                  <div class="attack-group">
+                    <strong>Group <?=$gnum?></strong>
+                    <ul>
+                      <?php foreach($group as $unit): ?>
+                        <?php foreach($monsterHealthList as $monsterTotalHealth): ?>
+                          <?php
+                            $base = ceil($monsterTotalHealth / max(1,$unit['strength']));
+                            $troops = $base + 4;
+                          ?>
+                          <li>
+                            <?=$troops?> × <?=$unit['name']?> (L<?=$unit['level']?>)
+                            <br>
+                            <small>
+                              <?=number_format($monsterTotalHealth)?> /
+                              <?=number_format($unit['strength'])?>
+                              = <?=$base?> (+4 safety)
+                            </small>
+                          </li>
+                        <?php endforeach; ?>
+                      <?php endforeach; ?>
+
+                    </ul>
+                  </div>
+                  <?php $gnum++; ?>
+                <?php endforeach; ?>
+              <?php else: ?>
+                <p style="opacity:.6;">Press Build Attack Plan</p>
+              <?php endif; ?>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="row">     <!-- Button -->
+    <div class="col-12">
+      <div class="card">
+          <!--Monster Counter Bar -->
           <?php if(!empty($counterSignal)): ?>
             <hr style="margin:15px 0;">
             <div class="counter-bar">
@@ -499,10 +532,9 @@ $imagePath = resolveSquadImage($squadStats ?? []);
               <?php endforeach; ?>
             </div>
           <?php endif; ?>
-        </div>
       </div>
     </div>
-
+  </div>
     <!-- ROW: Saved Attacks -- future use item
     <div class="row">
       <div class="col-12">
@@ -549,50 +581,8 @@ $imagePath = resolveSquadImage($squadStats ?? []);
     </div>
               -->
 
-    <!-- ROW: Attack Results -->
-    <div class="row">
-      <div class="col-12">
-        <div class="card">
-          <details open class="card-toggle">
-            <summary class="card-title">Attack Formation</summary>
-            <div id="attackResults" class="scroll-box">
-              <?php if($attackGroups): ?>
-                <?php $gnum=1; ?>
-                <?php foreach($attackGroups as $group): ?>
-                  <div class="attack-group">
-                    <strong>Group <?=$gnum?></strong>
-                    <ul>
-                      <?php foreach($group as $unit): ?>
-                        <?php foreach($monsterHealthList as $monsterTotalHealth): ?>
-                          <?php
-                            $base = ceil($monsterTotalHealth / max(1,$unit['strength']));
-                            $troops = $base + 4;
-                          ?>
-                          <li>
-                            <?=$troops?> × <?=$unit['name']?> (L<?=$unit['level']?>)
-                            <br>
-                            <small>
-                              <?=number_format($monsterTotalHealth)?> /
-                              <?=number_format($unit['strength'])?>
-                              = <?=$base?> (+4 safety)
-                            </small>
-                          </li>
-                        <?php endforeach; ?>
-                      <?php endforeach; ?>
 
-                    </ul>
-                  </div>
-                  <?php $gnum++; ?>
-                <?php endforeach; ?>
-              <?php else: ?>
-                <p style="opacity:.6;">Press Build Attack Plan</p>
-              <?php endif; ?>
-            </div>
-          </details>
-        </div>
-      </div>
-    </div>
-
+  </div>
     <!-- ROW (Spacer) -->
     <div class="row" style="height:40px;"></div>
 
@@ -601,23 +591,28 @@ $imagePath = resolveSquadImage($squadStats ?? []);
   </div>
 </main>
 
-  <script>
+<script>
 
-    /* -----------------------------
-    RESET SQUAD WHEN RARITY CHANGES
-    ------------------------------*/
+    document.addEventListener('DOMContentLoaded', () => {
 
-    document.querySelectorAll('input[name="rarity"]').forEach(r=>{
-      r.addEventListener('change', ()=>{
-        const squad = document.querySelector('select[name="squadID"]');
-        if(squad) squad.value="";
-      });
+      const checkboxes = document.querySelectorAll(
+        'input[name="useFighters"], input[name="useCreatures"]'
+      );
+
+      const button = document.getElementById('buildPlanBtn');
+      const hint = document.getElementById('unitHint');
+
+      function updateButtonState() {
+        const isChecked = [...checkboxes].some(cb => cb.checked);
+
+        if (button) button.disabled = !isChecked;
+        if (hint) hint.style.display = isChecked ? 'none' : 'block';
+      }
+
+      updateButtonState();
+      checkboxes.forEach(cb => cb.addEventListener('change', updateButtonState));
+
     });
-
-
-    /* -----------------------------
-    ADD NEW ATTACK ROW
-    ------------------------------*/
 
     document.querySelectorAll('.add-attack').forEach(btn=>{
 
@@ -626,58 +621,58 @@ $imagePath = resolveSquadImage($squadStats ?? []);
     const type=this.dataset.type;
     const table=this.closest('.metric-card').querySelector('.metric-table');
 
-    fetch("includes/add_attack.php",{
-    method:"POST",
-    headers:{
-    "Content-Type":"application/json"
-    },
-    body:JSON.stringify({type:type})
-    })
-    .then(r=>r.json())
-    .then(data=>{
+      fetch("includes/add_attack.php",{
+      method:"POST",
+      headers:{
+      "Content-Type":"application/json"
+      },
+      body:JSON.stringify({type:type})
+      })
+      .then(r=>r.json())
+      .then(data=>{
 
-    const row=document.createElement("div");
-    row.className="metric-row";
-    row.dataset.id=data.id;
+      const row=document.createElement("div");
+      row.className="metric-row";
+      row.dataset.id=data.id;
 
-    row.innerHTML=`
-      <select class="lvl"></select>
+      row.innerHTML=`
+        <select class="lvl"></select>
 
-      <span class="type">${type=='Common'?'C':'R'}</span>
+        <span class="type">${type=='Common'?'C':'R'}</span>
 
-      <select class="squad">
-      <option value="">Select Squad</option>
-        <?= $squadOptions ?>
-      </select>
+        <select class="squad">
+        <option value="">Select Squad</option>
+          <?= $squadOptions ?>
+        </select>
 
-      <input class="troops" value="0">
+        <input class="troops" value="0">
 
-      <select class="unit">
-      <option value="1">Ruby Golem</option>
-      </select>
+        <select class="unit">
+        <option value="1">Ruby Golem</option>
+        </select>
 
-      <select class="capt">
-      <option value="1">Capt 1</option>
-      </select>
+        <select class="capt">
+        <option value="1">Capt 1</option>
+        </select>
 
-      <span class="actions">
-      <span class="edit">✏️</span>
-      <span class="delete">✖</span>
-      </span>
-    `;
-    const lvlSelect = row.querySelector('.lvl');
+        <span class="actions">
+        <span class="edit">✏️</span>
+        <span class="delete">✖</span>
+        </span>
+      `;
+      const lvlSelect = row.querySelector('.lvl');
 
-    for(let i=1;i<=40;i++){
-      const opt=document.createElement('option');
-      opt.value=i;
-      opt.textContent=i;
-      lvlSelect.appendChild(opt);
-    }
-    table.appendChild(row);
+        for(let i=1;i<=40;i++){
+          const opt=document.createElement('option');
+          opt.value=i;
+          opt.textContent=i;
+          lvlSelect.appendChild(opt);
+        }
+        table.appendChild(row);
 
-    });
+        });
 
-    });
+      });
 
     });
 
