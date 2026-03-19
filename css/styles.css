@@ -802,8 +802,16 @@ main {
 .rewards-text {
   display: inline-block;
   vertical-align: middle;
+
 }
 
+.creature-img,
+.fighter-img{
+
+  display: inline-block;
+  vertical-align: middle;
+
+}
 .squad-reward-line{
   /* text-align: center; */
   display: flex;
@@ -834,7 +842,13 @@ main {
   }
 
 .squad-image-container img {
-	width: 85px;
+	width: 100px;
+	height: auto;
+	object-fit: cover;            /* Keep image proportion */
+}
+
+.creature-image-container img {
+	width: 100px;
 	height: auto;
 	object-fit: cover;            /* Keep image proportion */
 }
@@ -1401,4 +1415,38 @@ opacity:.6;
   display:flex;
   justify-content:center;
   width: 100%;
+}
+/* attack formation */
+.focus-pill {
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:20px;
+  background:#555;
+  color:#fff;
+  font-size:12px;
+  margin-bottom:6px;
+}
+
+.group-title {
+  font-weight:bold;
+  margin-bottom:6px;
+}
+
+.bonus-grid {
+  width:100%;
+  font-size:11px;
+  border-collapse:collapse;
+}
+
+.bonus-grid th,
+.bonus-grid td {
+  border:1px solid #444;
+  padding:4px;
+  text-align:center;
+}
+
+.group-switch {
+  display:flex;
+  justify-content:space-between;
+  padding:6px;
 }
