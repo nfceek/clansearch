@@ -644,20 +644,19 @@ $imagePath = resolveSquadImage($squadStats ?? []);
                         function calcLosses(creatureHealth, percent = 0, units) {
                             const boostedHP = creatureHealth * (1 + percent / 100) * units;
                             const diff = monsterMaxStrength - boostedHP;
-
                             if (diff >= boostedHP) {
-                                // Monster overpowers all creatures → RED ✖
-                                return '<span style="color:red;">ALL</span>';
+                                if (monsterMaxStrength >= boostedHP) {
+                                    // how many creatures die
+                                    const spend = Math.ceil(monsterMaxStrength / creatureHealth);
+                                    return `<span style="color:red;">${spend}</span>`;
+                                }
                             }
-
                             if (diff <= 0) {
                                 // Creature survives completely → GREEN 0
                                 return '<span style="color:green;">NONE</span>';
                             }
-
                             // Partial losses: how many creatures "die" to cover the diff
                             const loss = Math.ceil(diff / creatureHealth);
-
                             // Never exceed the units sent
                             return Math.min(loss, units).toLocaleString();
                         }
