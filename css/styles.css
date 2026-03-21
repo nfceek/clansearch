@@ -805,13 +805,6 @@ main {
 
 }
 
-.creature-img,
-.fighter-img{
-
-  display: inline-block;
-  vertical-align: middle;
-
-}
 .squad-reward-line{
   /* text-align: center; */
   display: flex;
@@ -846,6 +839,14 @@ main {
 	height: auto;
 	object-fit: cover;            /* Keep image proportion */
 }
+
+.creature-image-container {
+    display: flex;               /* Arrange items side by side */
+    align-items: stretch;        /* Make both sides equal height */
+    max-width: 500px;
+    padding: 10px;
+    gap: 15px;                    /* Space between image and text */
+  }
 
 .creature-image-container img {
 	width: 100px;
@@ -1384,16 +1385,6 @@ opacity:.6;
     flex-wrap: nowrap;
 }
 
-/* ---- CARD ---- */
-.card {
-    background: #ffffff;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-    text-align: center;
-    Width:100%;
-}
-
 /* remove auto-flex behavior */
 .card.flex-fill {
     flex: 1;
@@ -1415,16 +1406,6 @@ opacity:.6;
   display:flex;
   justify-content:center;
   width: 100%;
-}
-/* attack formation */
-.focus-pill {
-  display:inline-block;
-  padding:4px 10px;
-  border-radius:20px;
-  background:#555;
-  color:#fff;
-  font-size:12px;
-  margin-bottom:6px;
 }
 
 .group-title {
@@ -1449,4 +1430,40 @@ opacity:.6;
   display:flex;
   justify-content:space-between;
   padding:6px;
+}
+
+
+.card { border:1px solid #ccc; padding:15px; width:500px; margin:20px auto; }
+.creature-img { width:120px; height:120px; display:block; margin-bottom:10px; }
+.focus-pill { color:black; background:#eee; padding:5px 10px; margin:5px 0; display:inline-block; border-radius:12px; }
+.group-switch button { padding:5px 10px; margin:5px; }
+.bonus-grid { width:100%; border-collapse:collapse; margin-top:10px; }
+.bonus-grid th, .bonus-grid td { border:1px solid #aaa; text-align:center; padding:4px; }
+
+
+/* ---- CARD ---- */
+.card {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    text-align: center;
+    Width:100%;
+}
+
+.creature-img,
+.fighter-img{
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* attack formation */
+.focus-pill {
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:20px;
+  background:#555;
+  color:#fff;
+  font-size:12px;
+  margin-bottom:6px;
 }
