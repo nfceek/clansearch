@@ -64,12 +64,21 @@ function getFighters($pdo, $playerLevel, $unitType) {
 ------------------------------*/
 
 $rarity = $_GET['rarity'] ?? 'Common';
+
+$monsterHealthList = [];
+$monsterTotalHealth = 0;
+
+$monsterStrengthList = [];
+$monsterTotalStrength = 0;
+
 if(!in_array($rarity, ['Common','Rare'])) $rarity = 'Common';
   $selectedSquad    = $_GET['squadID'] ?? '';
   $playerLevel      = isset($_GET['playerLevel']) ? (int)$_GET['playerLevel'] : 6;
   $useFighters      = isset($_GET['useFighters']);
   $useCreatures     = isset($_GET['useCreatures']);
   $buildPlan        = isset($_GET['buildPlan']);
+
+
 
 /* -----------------------------
    Squads
@@ -209,12 +218,10 @@ if ($selectedSquad) {
         LEFT JOIN monster_bonus mb ON mb.monsterID = m.monsterID
         WHERE sm.squadID = ?
         GROUP BY m.monsterID
+        ORDER BY total_strength DESC
     ", [$selectedSquad]);
 }
 
-/* -----------------------------
-   build creature array
-------------------------------*/
 /* -----------------------------
    build creature array
 ------------------------------*/
@@ -248,8 +255,10 @@ if($buildPlan){
           LIMIT 5
         ", [$playerLevel]);
 
-        // decode bonuses
+        // decode bonuses & add formation number
+        $i = 1;
         foreach ($creatures as &$c) {
+            $c['formation_no'] = $i++;
             $c['bonuses'] = $c['bonuses'] ? json_decode($c['bonuses'], true) : [];
         }
         unset($c);
@@ -349,17 +358,10 @@ if($buildPlan && $selectedSquad && $monsters){
     //$groups = array_chunk(array_slice($scores,0,12),3);
     $groups = array_chunk(array_slice($scores,0,12),1);
 
-
     foreach($groups as $g){
         $attackGroups[] = $g;
         if(count($attackGroups)>=4) break;
 
-
-/*
-print_r($scores);
-echo '</pre>';
-echo '<br>';
-*/
     }
 }
 
@@ -490,8 +492,6 @@ $imagePath = resolveSquadImage($squadStats ?? []);
           </div>
         </div>
 
-
-      
     <div class="row">
       <div class="col-6">
         <div class="card">
@@ -516,7 +516,7 @@ $imagePath = resolveSquadImage($squadStats ?? []);
               <img src="<?= htmlspecialchars($imagePath) ?>"  class="squad-img" alt="<?= htmlspecialchars($squad['name']) ?>">                      
               <div class="squad-text-block">
                 <div class="reward-text-top">
-                  <h3><?= htmlspecialchars($squadStats['rarity']) ?> <?= htmlspecialchars($squadStats['name']) ?> | Level <?= $squadStats['level'] ?></h3>
+                  <h3><?= htmlspecialchars($squadStats['rarity']) ?> <?= htmlspecialchars($squadStats['name']) ?> | Lvl <?= $squadStats['level'] ?> </h3>
                 </div>
                 <div class="reward-text-middle"> 
                   <!--Monster Counter Bar -->
@@ -550,28 +550,33 @@ $imagePath = resolveSquadImage($squadStats ?? []);
                 $fly = $monster['bonus_fly'] ?? 0;
                 $oth = $monster['bonus_oth'] ?? 0;
 
-                $monsterTotalHealth = $monster['total_health'];
-                $monsterHealthList[] = $monsterTotalHealth;
+                $health = $monster['total_health'] ?? 0;
+                    $monsterHealthList[] = $health;
+                    $monsterTotalHealth += $health;
+
+                $strength = $monster['total_strength'] ?? 0;
+                    $monsterStrengthList[] = $strength;
+                    $monsterTotalStrength += $strength;
+                    
               ?>
 
+              <?php 
+                $monsterMaxHealth = !empty($monsterHealthList) ? max($monsterHealthList) : 0; 
+                $monsterMaxStrength = !empty($monsterStrengthList) ? max($monsterStrengthList) : 0; ?>
+
               <details class="monster-row">
-
                 <summary class="monster-summary">
-
                   <span class="col col-name">
-                  <?= htmlspecialchars($monster['name']) ?>
-                  </span>
-
+                  <?= htmlspecialchars($monster['name']) ?> (<?= htmlspecialchars($monster['type']) ?>)
+                  </span>              
                   <span class="col col-qty"> 
-                  Qty: <?= shortNum($monster['quantity']) ?> 
+                    Qty: <?= shortNum($monster['quantity']) ?> 
                   </span> 
-
                   <span class="col col-hlh">
-                  Hth: <?= shortNum($monster['total_health']) ?>
+                    Hth: <?= shortNum($monster['total_health']) ?>
                   </span>
-
                   <span class="col col-str">
-                  Str: <?= shortNum($monster['total_strength']) ?>
+                    Str: <?= shortNum($monster['total_strength']) ?>
                   </span>
                 </summary>
                 <div class="monster-calc">
@@ -591,6 +596,7 @@ $imagePath = resolveSquadImage($squadStats ?? []);
           </div>
         </div>
       </div>
+
       <!-- RIGHT: Attack Formation -->
       <div class="col-6">
         <div class="card">
@@ -605,101 +611,152 @@ $imagePath = resolveSquadImage($squadStats ?? []);
                       <button id="next">Next &gt;</button>
                   </div>
 
-                  <p>Units: <?= $totalUnits ?> | Groups: <?= count($attackGroups) ?></p>
+                  <p>Creature Attack Options: <?= count($attackGroups) ?></p>
 
-                  <script>
-                      // ✅ Prepare data from PHP
+                    <script>
                       const attackGroups = <?= json_encode($attackGroups) ?>;
+                      const monsterMaxHealth = <?= (int)$monsterMaxHealth ?>;
+                      const monsterMaxStrength = <?= (int)$monsterMaxStrength ?>;
                       let currentIndex = 0;
 
+                      /* ------------------ CALCS ------------------ */
+
+
+                      function calcUnitsNeeded(creatureStrength, percent = 0) {
+                          const boosted = creatureStrength * (1 + percent / 100);
+                          let units = Math.ceil(monsterMaxHealth / boosted);   
+
+                          if (units < 1) return 1;
+                          if (units > 500) return '<span style="color:red;">✖</span>';
+
+                          return units.toLocaleString();
+                      }
+                        /**
+                         * Calculates expected creature losses vs monster.
+                         * 
+                         * @param {number} creatureHealth - single creature HP
+                         * @param {number} percent - percent boost (0,200,400,...)
+                         * @param {number} monsterMaxStrength - total monster HP to fight
+                         * @param {number} units - number of creatures sent
+                         * @returns {string|number} - losses as rounded number or red ✖
+                         */
+
+                        function calcLosses(creatureHealth, percent = 0, units) {
+                            const boostedHP = creatureHealth * (1 + percent / 100) * units;
+                            const diff = monsterMaxStrength - boostedHP;
+
+                            if (diff >= boostedHP) {
+                                // Monster overpowers all creatures → RED ✖
+                                return '<span style="color:red;">ALL</span>';
+                            }
+
+                            if (diff <= 0) {
+                                // Creature survives completely → GREEN 0
+                                return '<span style="color:green;">NONE</span>';
+                            }
+
+                            // Partial losses: how many creatures "die" to cover the diff
+                            const loss = Math.ceil(diff / creatureHealth);
+
+                            // Never exceed the units sent
+                            return Math.min(loss, units).toLocaleString();
+                        }
+                      /* ------------------ RENDER ------------------ */
+
                       function renderCreature(i) {
-                          const creature = attackGroups[i][0]; // Each group has one creature
+                          const creature = attackGroups[i][0];
                           if (!creature) return;
 
                           const bonusParts = Object.entries(creature.bonuses || {}).map(
-                              ([type, val]) => type.toLowerCase() + ' +' + Number(val).toLocaleString() + ' % '
+                              ([type, val]) => `${type.toLowerCase()} +${Number(val).toLocaleString()}%`
                           ).join(' &nbsp;|&nbsp; ');
 
+                          const levels = [0,200,400,600,800,1000,1200];
+
+                          let strRow = '';
+                          let hlhRow = '';
+
+                          levels.forEach(p => {
+                              const units = calcUnitsNeeded(creature.strength, p);
+                              const losses = calcLosses(creature.health, units, p);
+
+                              strRow += `<td>${units}</td>`;
+                              hlhRow += `<td>${losses}</td>`;
+                          });
+
                           const html = `
-                              <div class="creature-text-block" style="display:flex; gap:15px; align-items:flex-start;">
+                              <div class="creature-text-block" style="display:flex; gap:15px; align-items:flex-start; padding-left:8px;">
                                   
-                                  <!-- IMAGE -->
-                                  <div class="creature-image-container" style="flex-shrink:0;">
-                                      <img src="${creature.imgpath}" class="creature-img" alt="${creature.name}" style="max-width:120px; border:1px solid #ccc; border-radius:8px;">
+                                  <div class="creature-image-container">
+                                      <img src="${creature.imgpath}" class="creature-img" style="max-width:120px;">
                                   </div>
 
-                                  <!-- INFO -->
                                   <div style="flex-grow:1;">
-                                      <!-- TITLE -->
-                                      <div class="reward-text-top">
-                                          <h3>Formation #${attackGroups.length} | ${creature.name}</h3>
+                                      <div class="formation-text-top">
+                                          <h3>Formation #${creature.formation_no} | ${creature.name} (${creature.type})</h3>
                                       </div>
 
-                                      <!-- BONUS PILL -->
-                                      <div class="reward-text-middle">
-                                          <div id="activeGroup" class="focus-pill">
+                                      <div class="formation-text-middle">Bonus Mods: 
+                                          <div class="focus-pill">
                                               ${bonusParts}
                                           </div>
                                       </div>
 
-                                      <!-- SUMMARY -->
-                                      <div class="reward-text-bottom">
-                                          Units Used: <?= $totalUnits ?>
+                                      <div class="formation-text-bottom">
+                                          Base Str: ${Number(creature.strength).toLocaleString()}
                                           &nbsp;|&nbsp;
-                                          Groups: <?= count($attackGroups) ?>
-                                          &nbsp;|&nbsp;
-                                          Mode: <?= ucfirst($unitType ?? 'Mixed') ?>
-                                          <br>
-                                          <span style="opacity:.6;">
-                                              Check creature info card in-game for bonus percentages
-                                          </span>
+                                          Base Hth: ${Number(creature.health).toLocaleString()}
                                       </div>
                                   </div>
                               </div>
 
-                              <!-- MONSTER GRID TABLE -->
                               <div class="monster-grid" style="margin-top:15px;">
-                                  <div id="activeGroupTbl" style="width:100%;">
-                                      <table class="bonus-grid">
-                                          <thead>
-                                              <tr>
-                                                  <th>${creature.name}</th>
-                                                  <th>Base</th>
-                                                  <th>200%</th>
-                                                  <th>400%</th>
-                                                  <th>600%</th>
-                                                  <th>800%</th>
-                                                  <th>1000%</th>
-                                                  <th>1200%</th>
-                                              </tr>
-                                          </thead>
-                                          <tbody>
-                                              <tr>
-                                                  <td>Units to Send (STR)</td>
-                                                  <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                                              </tr>
-                                              <tr>
-                                                  <td>Expected Losses (HLH)</td>
-                                                  <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-                                              </tr>
-                                          </tbody>
-                                      </table>
-                                  </div>
+                                  <table class="bonus-grid">
+                                      <thead>
+                                          <tr>
+                                              <th>${creature.name}</th>
+                                              <th>Base</th>
+                                              <th>200%</th>
+                                              <th>400%</th>
+                                              <th>600%</th>
+                                              <th>800%</th>
+                                              <th>1000%</th>
+                                              <th>1200%</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody>
+                                          <tr>
+                                              <td>Units to Send (STR)</td>
+                                              ${strRow}
+                                          </tr>
+                                          <tr>
+                                              <td>Expected Losses (HTH)</td>
+                                              ${hlhRow}
+                                          </tr>
+                                      </tbody>
+                                  </table>
                               </div>
                           `;
+
                           document.getElementById('creatureDisplay').innerHTML = html;
                       }
-                      document.getElementById('prev').addEventListener('click', () => {
-                          currentIndex = (currentIndex - 1 + attackGroups.length) % attackGroups.length;
-                          renderCreature(currentIndex);
-                      });
-                      document.getElementById('next').addEventListener('click', () => {
+
+                      /* ------------------ NAV ------------------ */
+
+                      document.getElementById('next').onclick = () => {
                           currentIndex = (currentIndex + 1) % attackGroups.length;
                           renderCreature(currentIndex);
-                      });
-                      // Initial render
+                      };
+
+                      document.getElementById('prev').onclick = () => {
+                          currentIndex = (currentIndex - 1 + attackGroups.length) % attackGroups.length;
+                          renderCreature(currentIndex);
+                      };
+
+                      /* ------------------ INIT ------------------ */
+
                       renderCreature(currentIndex);
-                  </script>
+                    </script>
           </div>
           <?php else: ?>
               <p>No creatures found.</p>
@@ -837,35 +894,7 @@ $imagePath = resolveSquadImage($squadStats ?? []);
 
     });
 
-    /* group switching */
-    let currentGroup = 0;
 
-    function renderGroup(i){
-        const g = attackGroups[i][0];
-        document.getElementById('creatureImg').src = g.imgpath;
-        document.getElementById('creatureName').innerText = g.name;
-
-        let parts = [];
-        for(const [t,v] of Object.entries(g.bonuses)){
-            parts.push(`${t.toLowerCase()} +${v}`);
-        }
-        document.getElementById('bonusLine').innerText = parts.join(' | ');
-
-        // Update monster-grid table header
-        const tbl = document.querySelector('#activeGroupTbl table thead th:first-child');
-        if(tbl) tbl.innerText = g.name;
-    }
-
-    document.getElementById('next').onclick = () => {
-        currentGroup++;
-        if(currentGroup >= attackGroups.length) currentGroup = 0;
-        renderGroup(currentGroup);
-    };
-    document.getElementById('prev').onclick = () => {
-        currentGroup--;
-        if(currentGroup < 0) currentGroup = attackGroups.length-1;
-        renderGroup(currentGroup);
-    };
 
     // init first creature
     if(attackGroups.length) renderGroup(0);
@@ -879,12 +908,6 @@ $imagePath = resolveSquadImage($squadStats ?? []);
     document.getElementById('groupNext')?.addEventListener('click', () => {
         currentGroup = (currentGroup + 1) % attackGroups.length;
         renderGroup(currentGroup);
-    });
-
-
-    // 🔹 INITIAL LOAD SYNC (IMPORTANT)
-    document.addEventListener('DOMContentLoaded', () => {
-        renderGroup(0);
     });
 
     /* -----------------------------
@@ -913,7 +936,6 @@ $imagePath = resolveSquadImage($squadStats ?? []);
     .then(()=>row.remove());
 
     }
-
 
     /* EDIT / SAVE */
 

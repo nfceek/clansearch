@@ -704,12 +704,84 @@ footer {
 /* 4-column grid */
 .monster-summary {
     display: grid;
-    grid-template-columns: 150px 1fr 1fr 1fr;
+    grid-template-columns: 150px 1fr 1fr 1fr 1fr;
     align-items: center;
     cursor: pointer;
     gap: 20px;
     list-style: none;
     position: relative;
+}
+
+/* monster layout */
+
+.monster-summary{
+  display:grid;
+  grid-template-columns: 150px 100px 100px 100px;
+  align-items: left;
+  cursor: pointer;
+  gap: 20px;
+  list-style: none;
+  position: relative;
+} 
+
+.monster-calc {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bonus-col {
+  margin-top: 4px;
+  margin-left:5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap; /* prevents overflow */
+}
+
+.bonus-col span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+/* columns */
+
+.col{
+  font-size:14px;
+}
+
+.col-str, .col-hlh, 
+.col-qty, .col-type {
+  font-weight: bold;
+  font-size:14px;
+  text-align: left;
+}
+
+.col-bns {
+  width:80px;
+}
+
+/* dot colors */
+
+.dot{
+width:10px;
+height:10px;
+border-radius:50%;
+display:inline-block;
+margin-right:3px;
+}
+
+.dot-red{
+background:#d9534f;
+}
+
+.dot-yellow{
+background:#f0ad4e;
+}
+
+.dot-green{
+background:#5cb85c;
 }
 
 /* remove default arrow */
@@ -861,19 +933,23 @@ main {
 	flex: 1;                       /* Take remaining space */
 }
 
-.reward-text-top {
+.reward-text-top,
+.formation-text-top {
 	font-weight: bold;
 	font-size: 1.1em;
+  text-align: left;
 }
 
-.reward-text-middle {
+.reward-text-middle, 
+.formation-text-middle {
   font-weight: bold;
 	font-size: 0.8em;
   text-align: left;
   padding-left:20px;
 }
 
-.reward-text-bottom {
+.reward-text-bottom,
+.formation-text-bottom {
 	color: #555;
 	font-size: 0.8em;
   text-align: left;
@@ -967,73 +1043,6 @@ margin-right:4px;
 .col-tstr,
 .col-thth {
     width:150px;
-}
-
-/* monster layout */
-
-.monster-summary{
-display:grid;
-grid-template-columns: 150px 100px 150px auto;
-align-items:center;
-gap:10px;
-}
-
-.monster-calc {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.bonus-col {
-  margin-top: 4px;
-  margin-left:5px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap; /* prevents overflow */
-}
-
-.bonus-col span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-}
-/* columns */
-
-.col{
-  font-size:14px;
-}
-
-.col-str, .col-hlh, .col-qty {
-  font-weight: bold;
-  font-size:14px;
-}
-
-.col-bns {
-  width:80px;
-}
-
-/* dot colors */
-
-.dot{
-width:10px;
-height:10px;
-border-radius:50%;
-display:inline-block;
-margin-right:3px;
-}
-
-.dot-red{
-background:#d9534f;
-}
-
-.dot-yellow{
-background:#f0ad4e;
-}
-
-.dot-green{
-background:#5cb85c;
 }
 
 /* calc row */
@@ -1436,7 +1445,7 @@ opacity:.6;
 
 /*.card { border:1px solid #ccc; padding:15px; width:500px; margin:20px auto; }*/
 .creature-img { width:120px; height:120px; display:block; margin-bottom:10px; }
-.focus-pill { color:black; background:#eee; padding:5px 10px; margin:5px 0; display:inline-block; border-radius:12px; }
+
 .group-switch button { padding:5px 10px; margin:5px; }
 .bonus-grid { width:100%; border-collapse:collapse; margin-top:10px; }
 .bonus-grid th, .bonus-grid td { border:1px solid #aaa; text-align:center; padding:4px; }
@@ -1464,7 +1473,7 @@ opacity:.6;
   padding:4px 10px;
   border-radius:20px;
   background:#555;
-  color:#fff;
+  color:white;
   font-size:12px;
-  margin-bottom:6px;
+  margin-bottom:10px;
 }
