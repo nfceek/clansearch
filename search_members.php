@@ -1,5 +1,5 @@
 <?php
-require_once 'includes/db.php';
+    include __DIR__ . '/includes/header.php';
 
 $kingdom = $_GET['kingdom'] ?? '';
 $membername = trim($_GET['membername'] ?? '');

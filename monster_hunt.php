@@ -1,10 +1,6 @@
 <?php
   include __DIR__ . '/includes/header.php';
 
-  /* Fetch all kingdoms for dropdown
-  $kingdoms = $pdo->query("SELECT DISTINCT Num FROM Kingdom ORDER BY Num ASC")->fetchAll(PDO::FETCH_COLUMN);
-  $defaultKingdom = 274; */
-
 /* -----------------------------
    Helpers
 ------------------------------*/
@@ -444,17 +440,14 @@ $imagePath = resolveSquadImage($squadStats ?? []);
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="squad-explain" style='padding-top:10px;'>
-                      <label name="squad-info" id="squad-info"><br /><b>This is NOT a stack calc</b><br /><br />It is meant for Monsters on the World Map
-                        <!--
-                        <ul>
-                          <li>Select Common/Rare</li>
-                          <li>Pick A Monster Squad</li>
-                          <li>Select Attack Units</li>
-                          <li>Use Dashboard to dermine best Attack Group</li>
-                        </ul>
-                        -->
+                    <div class="squad-explain" style='padding-top:10px;margin-top:8px'>
+                      <label name="squad-info" id="squad-info" style='padding-top:10px;margin-top:8px'>
+                        <b>This is NOT a stack calc</b>
                       </label>
+                      <br />
+                       <label name="squad-info" id="squad-info" style="opacity:.6; padding-top:12px;margin-top:8px;font-size:.9rem;">
+                        It is for Monsters on the World Map
+                      </label>                     
 
                     </div>
                 </div>

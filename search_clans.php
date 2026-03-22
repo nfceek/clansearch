@@ -1,11 +1,15 @@
 <?php
-require_once 'includes/db.php';
+    include __DIR__ . '/includes/header.php';
 
 $name = trim($_GET['clan_name'] ?? '');
 if ($name === '') {
     echo "<p>No clan name provided.</p>";
     exit;
 }
+
+  /* Fetch all kingdoms for dropdown */
+  $kingdoms = $pdo->query("SELECT DISTINCT Num FROM Kingdom ORDER BY Num ASC")->fetchAll(PDO::FETCH_COLUMN);
+  $defaultKingdom = 274; 
 
 // Fetch matching clans (limit to a few to prevent overload)
 $stmt = $pdo->prepare("SELECT * FROM Clans WHERE name LIKE :name ORDER BY name ASC LIMIT 5");
