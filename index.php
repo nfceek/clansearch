@@ -1,12 +1,11 @@
 <?php 
-
-include 'includes/header.php';
+    include __DIR__ . '/includes/header.php';
 ?>
 
 <div class="bc-container">
     <div class="bc-scroll">
         <!-- Council Chamber -->
-        <a href="#" class="bc-card">
+        <a href="/welcome.php" class="bc-card">
             <div class="bc-img">
                 <img src="/images/cards/council_chamber.jpg" alt="War Table">
             </div>
@@ -39,9 +38,9 @@ include 'includes/header.php';
             <h2>The Tavern</h2>
             <p>The social hub of BattleCouncil.</p>
             <ul>
-                <li>Player ratings</li>
-                <li>Bounty wall</li>
-                <li>Find missing players</li>
+                <li>Clan Listings</li>
+                <li>Bounty Wall</li>
+                <li>Tell Us More</li>
             </ul>
         </a>
 
@@ -77,11 +76,11 @@ include 'includes/header.php';
             <div class="bc-img">
                 <img src="/images/cards/captain_archive.jpg" alt="War Table">
             </div>
-            <h2>Captain Archive</h2>
-            <p>Study captains and heroes.</p>
+            <h2>Citadel Cracker</h2>
+            <p>Crack the code</p>
             <ul>
-                <li>Captain abilities</li>
-                <li>Hero comparisons</li>
+                <li>Elven Citadels</li>
+                <li>Undead Citadels</li>
             </ul>
         </a>
         

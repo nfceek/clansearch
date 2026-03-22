@@ -1,16 +1,12 @@
 <?php
-require_once 'db.php';
-
-// Fetch all kingdoms for dropdown
-$kingdoms = $pdo->query("SELECT DISTINCT Num FROM Kingdom ORDER BY Num ASC")->fetchAll(PDO::FETCH_COLUMN);
-$defaultKingdom = 265;
+  require_once __DIR__ . '/db.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Clan Management</title>
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="css/styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
 </head>
@@ -18,7 +14,7 @@ $defaultKingdom = 265;
 
   <!-- Header Image -->
   <div class="header-image">
-    <img src="/images/site-header-2.png" alt="Clan Management Header" style="width:100%; max-height:150px; object-fit:cover;">
+    <img src="images/site-header-2.png" alt="Clan Management Header" style="width:100%; max-height:150px; object-fit:cover;">
   </div>
 
   <!-- Navigation Bar -->
@@ -43,19 +39,20 @@ $defaultKingdom = 265;
     </div>
 
     <div class="nav-right">
+      <!--
       <div class="menu">
         <button class="menu-btn">Menu ▾</button>
         <div class="menu-content">
-          <!-- you can add user settings or admin links here later -->
           <a href="/monster_hunt.php">⚔️ Monster Hunt</a>
-          <!--<a href="/monster_editor.php">👹 Monster Editor </a>
+          <a href="/monster_editor.php">👹 Monster Editor </a>
           <a href="/squad_editor.php">🪖 Squad Editor </a> 
           <a href="/matrix_data.php">🐲 Matrix Data </a>  
-          <a href="">🎯Monster_hunt </a>     -->    
+          <a href="">🎯Monster_hunt </a> 
           <a href="member_dashboard.php">👥 Manage Members</a>
           <a href="#">🧬 Settings</a>
         </div>
       </div>
+          -->
     </div>
   </nav>
 

@@ -1,5 +1,9 @@
-<?php 
-include 'includes/header.php';
+<?php
+  include __DIR__ . '/includes/header.php';
+
+  /* Fetch all kingdoms for dropdown
+  $kingdoms = $pdo->query("SELECT DISTINCT Num FROM Kingdom ORDER BY Num ASC")->fetchAll(PDO::FETCH_COLUMN);
+  $defaultKingdom = 274; */
 
 /* -----------------------------
    Helpers
@@ -24,8 +28,8 @@ function getAttacksByRarity($pdo, $rarity) {
             sa.characterID,
             sa.loss,
             c.name AS captainName
-        FROM Squad_Attack sa
-        LEFT JOIN Characters c ON c.characterID = sa.characterID
+        FROM squad_attack sa
+        LEFT JOIN characters c ON c.characterID = sa.characterID
         WHERE sa.gameID = 1
         AND sa.rarity = ?
         ORDER BY sa.level, sa.squadAttackID
@@ -86,7 +90,7 @@ if(!in_array($rarity, ['Common','Rare'])) $rarity = 'Common';
 
 $squads = fetchAll($pdo, "
     SELECT squadID, name, level, rarity, image_base
-    FROM Monster_Squad
+    FROM monster_squad
     WHERE rarity = ?
     ORDER BY name, level
 ", [$rarity]);
@@ -110,7 +114,7 @@ $killShots = fetchAll($pdo, "
         ms.level AS squadLevel,
         COUNT(sau.attackUnitID) AS unitCount
     FROM squad_attack sa
-    LEFT JOIN Monster_Squad ms ON ms.squadID = sa.squadID
+    LEFT JOIN monster_squad ms ON ms.squadID = sa.squadID
     LEFT JOIN squad_attack_units sau ON sau.squadAttackID = sa.squadAttackID
     GROUP BY sa.squadAttackID
     ORDER BY sa.rarity, ms.name
@@ -118,7 +122,7 @@ $killShots = fetchAll($pdo, "
 
 $captains = fetchAll($pdo, "
     SELECT characterID, name
-    FROM Characters
+    FROM characters
     WHERE role = 'Captain'
     ORDER BY name
 ");
@@ -139,8 +143,8 @@ $monsters = [];
 if ($selectedSquad) {
     $monsters = fetchAll($pdo, "
         SELECT m.monsterID, m.name, m.type, m.health, m.strength
-        FROM Squad_Monster sm
-        JOIN Monster m ON m.monsterID = sm.monsterID
+        FROM squad_monster sm
+        JOIN monster m ON m.monsterID = sm.monsterID
         WHERE sm.squadID = ?
     ", [$selectedSquad]);
 }
@@ -189,7 +193,7 @@ if ($selectedSquad) {
 
     $stats = fetchAll($pdo, "
         SELECT name, level, valor, frags, xp, rarity, image_base
-        FROM Monster_Squad
+        FROM monster_squad
         WHERE squadID = ? AND rarity = ?
     ", [$selectedSquad, $rarity]);
 
@@ -213,8 +217,8 @@ if ($selectedSquad) {
             COALESCE(MAX(CASE WHEN mb.bonus_against='Fly' THEN mb.bonus_percent END),0) AS bonus_fly,
             COALESCE(MAX(CASE WHEN mb.bonus_against='Oth' THEN mb.bonus_percent END),0) AS bonus_oth
 
-        FROM Squad_Monster sm
-        JOIN Monster m ON m.monsterID = sm.monsterID
+        FROM squad_monster sm
+        JOIN monster m ON m.monsterID = sm.monsterID
         LEFT JOIN monster_bonus mb ON mb.monsterID = m.monsterID
         WHERE sm.squadID = ?
         GROUP BY m.monsterID
@@ -393,580 +397,627 @@ function resolveSquadImage($squadStats) {
 $imagePath = resolveSquadImage($squadStats ?? []);
 
 ?>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Clan Management</title>
+    <link rel="stylesheet" href="/css/styles.css">
+  </head>
+  <body>
+    <div class="page-container-monster">
+        <h1>Monster Squad Dashboard</h1>
+        <form method="GET">
+          <div class="row">
+            <div class="col-6"> <!-- monster selection -->
+                <div class="card">
+                    <h3>Monster Selection</h3>
+                    <!-- Rarity -->
+                    <div class="rarity-group">
+                        <label>
+                            <input type="radio" name="rarity" value="Common"
+                            <?= ($rarity === 'Common') ? 'checked' : '' ?>
+                            onchange="this.form.submit()" checked>
+                            Common
+                        </label>
 
-<main>
-  <div class="page-container-monster">
-      <h1>Monster Squad Dashboard</h1>
-      <form method="GET">
-        <div class="row">
-          <div class="col-6"> <!-- monster selection -->
-              <div class="card">
-                  <h3>Monster Selection</h3>
-                  <!-- Rarity -->
-                  <div class="rarity-group">
-                      <label>
-                          <input type="radio" name="rarity" value="Common"
-                          <?= ($rarity === 'Common') ? 'checked' : '' ?>
-                          onchange="this.form.submit()" checked>
-                          Common
-                      </label>
-
-                      <label>
-                          <input type="radio" name="rarity" value="Rare"
-                          <?= ($rarity === 'Rare') ? 'checked' : '' ?>
-                          onchange="this.form.submit()" disabled>
-                          Rare
-                      </label>
-                  </div>
-                  <!-- Squad Dropdown -->
-                  <div class="squad-select">
-                      <select name="squadID" onchange="this.form.submit()">
-                          <option value="">-- Choose Squad --</option>
-
-                          <?php foreach ($squads as $squad): ?>
-                              <option value="<?= $squad['squadID'] ?>"
-                              <?= ($selectedSquad == $squad['squadID']) ? 'selected' : '' ?>>
-
-                                  <?= htmlspecialchars($squad['name']) ?>
-                                  (L<?= $squad['level'] ?>)
-
-                              </option>
-                          <?php endforeach; ?>
-                      </select>
-                  </div>
-                  <div class="squad-explain" style='padding-top:10px;'>
-                    <label name="squad-info" id="squad-info"><br /><b>This is NOT a stack calc</b><br /><br />It is meant for Monsters on the World Map
-                      <!--
-                      <ul>
-                        <li>Select Common/Rare</li>
-                        <li>Pick A Monster Squad</li>
-                        <li>Select Attack Units</li>
-                        <li>Use Dashboard to dermine best Attack Group</li>
-                      </ul>
-                      -->
-                    </label>
-
-                  </div>
-              </div>
-          </div>
-          <?php if ($selectedSquad && $squadStats): ?>   <!-- squad form -->           
-          <!-- ROW: Attack Planner -->
-          <div class="col-6">
-            <div class="card">
-              <h3>Attack Planner</h3>
-              <form method="GET">
-                <input type="hidden" name="squadID" value="<?= $selectedSquad ?>">
-                <input type="hidden" name="rarity" value="<?= htmlspecialchars($rarity) ?>">
-
-                <!-- Planner Section -->
-                <div class="planner-section">
-
-                  <!-- Player Level -->
-                  <label><strong>Player Level</strong></label>
-                  <select name="playerLevel" class="selectLevel">
-                    <?php for($i=1;$i<=10;$i++): ?>
-                      <option value="<?=$i?>" <?=($playerLevel==$i)?'selected':''?>>
-                        Level <?=$i?>
-                      </option>
-                    <?php endfor; ?>
-                  </select>
-
-                  <!-- Unit Types -->
-                  <label><strong>Troops</strong></label>
-                  <label><input type="checkbox" name="useFighters" value="1" <?= $useFighters ? 'checked' : '' ?> disabled> Fighters</label>
-                  <label><input type="checkbox" name="useCreatures" value="1" <?= $useCreatures ? 'checked' : '' ?> checked> Creatures</label>
-                </div>
-                <div class="bonus-section">
-                    <label></label>
-                    <label></label>
-                </div>
-                  <!-- Submit -->
-                  <small id="unitHint" style="opacity:.6;">Select a unit type to build plan</small>
-                  <div style="margin-top:12px;">
-                    <button  type="submit" name="buildPlan"  value="1" class="btn-primary" id="buildPlanBtn">
-                      Build Attack Plan
-                    </button>
-                  </div>
-              </form>
-            </div>
-          </div>
-        </div>
-
-    <div class="row">
-      <div class="col-6">
-        <div class="card">
-          <?php
-            function shortNum($n){
-                if($n >= 1000000000) return round($n/1000000000,4).' B';
-                if($n >= 1000000) return round($n/1000000,4).' M';
-                if($n >= 1000) return round($n/1000,4).' K';
-                return $n;
-            }
-
-          function bonusDot($pct){
-              if($pct == 0) return "dot-green";
-              if($pct > 50) return "dot-red";
-              return "dot-yellow";
-          }
-          ?>
-
-          <!-- left 50% : Squad Rewards -->
-        <div class="inner-card">
-            <div class="squad-image-container">
-              <img src="<?= htmlspecialchars($imagePath) ?>"  class="squad-img" alt="<?= htmlspecialchars($squad['name']) ?>">                      
-              <div class="squad-text-block">
-                <div class="reward-text-top">
-                  <h3><?= htmlspecialchars($squadStats['rarity']) ?> <?= htmlspecialchars($squadStats['name']) ?> | Lvl <?= $squadStats['level'] ?> </h3>
-                </div>
-                <div class="reward-text-middle"> 
-                  <!--Monster Counter Bar -->
-                  <?php if(!empty($counterSignal)): ?>
-                    <div class="counter-bar">Damage Mods: 
-                      <?php foreach($counterSignal as $t=>$c): ?>
-                        <span class="counter <?=$c?>"><?=$t?></span>
-                      <?php endforeach; ?>
+                        <label>
+                            <input type="radio" name="rarity" value="Rare"
+                            <?= ($rarity === 'Rare') ? 'checked' : '' ?>
+                            onchange="this.form.submit()" disabled>
+                            Rare
+                        </label>
                     </div>
-                  <?php endif; ?>
-                </div>
+                    <!-- Squad Dropdown -->
+                    <div class="squad-select">
+                        <select name="squadID" onchange="this.form.submit()">
+                            <option value="">-- Choose Squad --</option>
 
-                <div class="reward-text-bottom">   
-                  Valor: <?= shortNum($squadStats['valor']) ?>
-                  &nbsp;|&nbsp;
-                  Frags: <?= shortNum($squadStats['frags']) ?>
-                  &nbsp;|&nbsp;
-                  XP: <?= shortNum($squadStats['xp']) ?>
+                            <?php foreach ($squads as $squad): ?>
+                                <option value="<?= $squad['squadID'] ?>"
+                                <?= ($selectedSquad == $squad['squadID']) ? 'selected' : '' ?>>
+
+                                    <?= htmlspecialchars($squad['name']) ?>
+                                    (L<?= $squad['level'] ?>)
+
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="squad-explain" style='padding-top:10px;'>
+                      <label name="squad-info" id="squad-info"><br /><b>This is NOT a stack calc</b><br /><br />It is meant for Monsters on the World Map
+                        <!--
+                        <ul>
+                          <li>Select Common/Rare</li>
+                          <li>Pick A Monster Squad</li>
+                          <li>Select Attack Units</li>
+                          <li>Use Dashboard to dermine best Attack Group</li>
+                        </ul>
+                        -->
+                      </label>
+
+                    </div>
                 </div>
+            </div>
+            <?php if ($selectedSquad && $squadStats): ?>   <!-- squad form -->           
+            <!-- ROW: Attack Planner -->
+            <div class="col-6">
+              <div class="card">
+                <h3>Attack Planner</h3>
+                <form method="GET">
+                  <input type="hidden" name="squadID" value="<?= $selectedSquad ?>">
+                  <input type="hidden" name="rarity" value="<?= htmlspecialchars($rarity) ?>">
+
+                  <!-- Planner Section -->
+                  <div class="planner-section">
+
+                    <!-- Player Level -->
+                    <label><strong>Player Level</strong></label>
+                    <select name="playerLevel" class="selectLevel">
+                      <?php for($i=1;$i<=10;$i++): ?>
+                        <option value="<?=$i?>" <?=($playerLevel==$i)?'selected':''?>>
+                          Level <?=$i?>
+                        </option>
+                      <?php endfor; ?>
+                    </select>
+
+                    <!-- Unit Types -->
+                    <label><strong>Troops</strong></label>
+                    <label><input type="checkbox" name="useFighters" value="1" <?= $useFighters ? 'checked' : '' ?> disabled> Fighters</label>
+                    <label><input type="checkbox" name="useCreatures" value="1" <?= $useCreatures ? 'checked' : '' ?> checked> Creatures</label>
+                  </div>
+                  <div class="bonus-section">
+                      <label></label>
+                      <label></label>
+                  </div>
+                    <!-- Submit -->
+                    <small id="unitHint" style="opacity:.6;">Select a unit type to build plan</small>
+                    <div style="margin-top:12px;">
+                      <button  type="submit" name="buildPlan"  value="1" class="btn-primary" id="buildPlanBtn">
+                        Build Attack Plan
+                      </button>
+                    </div>
+                </form>
               </div>
             </div>
-            <?php if ($monsters): ?>
-              <div class="monster-grid">
+          </div>
 
-              <?php foreach ($monsters as $monster): ?>
+      <div class="row">
+        <div class="col-6">
+          <div class="card">
+            <?php
+              function shortNum($n){
+                  if($n >= 1000000000) return round($n/1000000000,4).' B';
+                  if($n >= 1000000) return round($n/1000000,4).' M';
+                  if($n >= 1000) return round($n/1000,4).' K';
+                  return $n;
+              }
 
-              <?php
-                $mel = $monster['bonus_mel'] ?? 0;
-                $mtd = $monster['bonus_mtd'] ?? 0;
-                $rng = $monster['bonus_rng'] ?? 0;
-                $fly = $monster['bonus_fly'] ?? 0;
-                $oth = $monster['bonus_oth'] ?? 0;
+            function bonusDot($pct){
+                if($pct == 0) return "dot-green";
+                if($pct > 50) return "dot-red";
+                return "dot-yellow";
+            }
+            ?>
 
-                $health = $monster['total_health'] ?? 0;
-                    $monsterHealthList[] = $health;
-                    $monsterTotalHealth += $health;
+            <!-- left 50% : Squad Rewards -->
+          <div class="inner-card">
+              <div class="squad-image-container">
+                <img src="<?= htmlspecialchars($imagePath) ?>"  class="squad-img" alt="<?= htmlspecialchars($squad['name']) ?>">                      
+                <div class="squad-text-block">
+                  <div class="reward-text-top">
+                    <h3><?= htmlspecialchars($squadStats['rarity']) ?> <?= htmlspecialchars($squadStats['name']) ?> | Lvl <?= $squadStats['level'] ?> </h3>
+                  </div>
+                  <div class="reward-text-middle"> 
+                    <!--Monster Counter Bar -->
+                    <?php if(!empty($counterSignal)): ?>
+                      <div class="counter-bar">Damage Mods: 
+                        <?php foreach($counterSignal as $t=>$c): ?>
+                          <span class="counter <?=$c?>"><?=$t?></span>
+                        <?php endforeach; ?>
+                      </div>
+                    <?php endif; ?>
+                  </div>
 
-                $strength = $monster['total_strength'] ?? 0;
-                    $monsterStrengthList[] = $strength;
-                    $monsterTotalStrength += $strength;
-                    
-              ?>
-
-              <?php 
-                $monsterMaxHealth = !empty($monsterHealthList) ? max($monsterHealthList) : 0; 
-                $monsterMaxStrength = !empty($monsterStrengthList) ? max($monsterStrengthList) : 0; ?>
-
-              <details class="monster-row">
-                <summary class="monster-summary">
-                  <span class="col col-name">
-                  <?= htmlspecialchars($monster['name']) ?> (<?= htmlspecialchars($monster['type']) ?>)
-                  </span>              
-                  <span class="col col-qty"> 
-                    Qty: <?= shortNum($monster['quantity']) ?> 
-                  </span> 
-                  <span class="col col-hlh">
-                    Hth: <?= shortNum($monster['total_health']) ?>
-                  </span>
-                  <span class="col col-str">
-                    Str: <?= shortNum($monster['total_strength']) ?>
-                  </span>
-                </summary>
-                <div class="monster-calc">
-                  <span class="bonus-col">
-                    <span class="dot <?=bonusDot($mel)?>" title="Mel <?=$mel?>%"></span> Mel
-                    <span class="dot <?=bonusDot($mtd)?>" title="Mtd <?=$mtd?>%"></span> Mtd
-                    <span class="dot <?=bonusDot($rng)?>" title="Rng <?=$rng?>%"></span> Rng
-                    <span class="dot <?=bonusDot($fly)?>" title="Fly <?=$fly?>%"></span> Fly
-                    <span class="dot <?=bonusDot($oth)?>" title="Other <?=$oth?>%"></span> Oth
-                  </span>
+                  <div class="reward-text-bottom">   
+                    Valor: <?= shortNum($squadStats['valor']) ?>
+                    &nbsp;|&nbsp;
+                    Frags: <?= shortNum($squadStats['frags']) ?>
+                    &nbsp;|&nbsp;
+                    XP: <?= shortNum($squadStats['xp']) ?>
+                  </div>
                 </div>
-              </details> 
-            <?php endforeach; ?> 
-            </div> <?php else: ?> 
-            <p>No monsters assigned.</p> 
-            <?php endif; ?> 
+              </div>
+              <?php if ($monsters): ?>
+                <div class="monster-grid">
+
+                <?php foreach ($monsters as $monster): ?>
+
+                <?php
+                  $mel = $monster['bonus_mel'] ?? 0;
+                  $mtd = $monster['bonus_mtd'] ?? 0;
+                  $rng = $monster['bonus_rng'] ?? 0;
+                  $fly = $monster['bonus_fly'] ?? 0;
+                  $oth = $monster['bonus_oth'] ?? 0;
+
+                  $health = $monster['total_health'] ?? 0;
+                      $monsterHealthList[] = $health;
+                      $monsterTotalHealth += $health;
+
+                  $strength = $monster['total_strength'] ?? 0;
+                      $monsterStrengthList[] = $strength;
+                      $monsterTotalStrength += $strength;
+                      
+                ?>
+
+                <?php 
+                  $monsterMaxHealth = !empty($monsterHealthList) ? max($monsterHealthList) : 0; 
+                  $monsterMaxStrength = !empty($monsterStrengthList) ? max($monsterStrengthList) : 0; ?>
+
+                <details class="monster-row">
+                  <summary class="monster-summary">
+                    <span class="col col-name">
+                    <?= htmlspecialchars($monster['name']) ?> (<?= htmlspecialchars($monster['type']) ?>)
+                    </span>              
+                    <span class="col col-qty"> 
+                      Qty: <?= shortNum($monster['quantity']) ?> 
+                    </span> 
+                    <span class="col col-hlh">
+                      Hth: <?= shortNum($monster['total_health']) ?>
+                    </span>
+                    <span class="col col-str">
+                      Str: <?= shortNum($monster['total_strength']) ?>
+                    </span>
+                  </summary>
+                  <div class="monster-calc">
+                    <span class="bonus-col">
+                      <span class="dot <?=bonusDot($mel)?>" title="Mel <?=$mel?>%"></span> Mel
+                      <span class="dot <?=bonusDot($mtd)?>" title="Mtd <?=$mtd?>%"></span> Mtd
+                      <span class="dot <?=bonusDot($rng)?>" title="Rng <?=$rng?>%"></span> Rng
+                      <span class="dot <?=bonusDot($fly)?>" title="Fly <?=$fly?>%"></span> Fly
+                      <span class="dot <?=bonusDot($oth)?>" title="Other <?=$oth?>%"></span> Oth
+                    </span>
+                  </div>
+                </details> 
+              <?php endforeach; ?> 
+              </div> <?php else: ?> 
+              <p>No monsters assigned.</p> 
+              <?php endif; ?> 
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- RIGHT: Attack Formation -->
-      <div class="col-6">
-        <div class="card">
-          <div class="creature-info-card">
-              <?php if(!empty($attackGroups)): ?>
-                  <div id="creatureDisplay">
-                      <!-- This will be filled by JS -->
-                  </div>
+        <!-- RIGHT: Attack Formation -->
+        <div class="col-6">
+          <div class="card">
+            <div class="creature-info-card">
+                <?php if(!empty($attackGroups)): ?>
+                    <div id="creatureDisplay">
+                        <!-- This will be filled by JS -->
+                    </div>
 
-                  <div class="group-switch">
-                      <button id="prev">&lt; Prev</button>
-                      <button id="next">Next &gt;</button>
-                  </div>
+                    <div class="group-switch">
+                        <button id="prev">&lt; Prev</button>
+                        <button id="next">Next &gt;</button>
+                    </div>
 
-                  <p>Creature Attack Options: <?= count($attackGroups) ?></p>
+                    <p>Creature Attack Options: <?= count($attackGroups) ?></p>
 
-                    <script>
-                      const attackGroups = <?= json_encode($attackGroups) ?>;
-                      const monsterMaxHealth = <?= (int)$monsterMaxHealth ?>;
-                      const monsterMaxStrength = <?= (int)$monsterMaxStrength ?>;
-                      let currentIndex = 0;
+                      <script>
+                        const attackGroups = <?= json_encode($attackGroups) ?>;
+                        const monsterMaxHealth = <?= (int)$monsterMaxHealth ?>;
+                        const monsterMaxStrength = <?= (int)$monsterMaxStrength ?>;
+                        let currentIndex = 0;
 
-                      /* ------------------ CALCS ------------------ */
+                        /* ------------------ CALCS ------------------ */
+                        function calcUnitsNeeded(creatureStrength, percent = 0) {
+                            const boosted = creatureStrength * (1 + percent / 100);
+                            let units = Math.ceil(monsterMaxHealth / boosted);  
 
+                            if (units < 1) return 1;
 
-                      function calcUnitsNeeded(creatureStrength, percent = 0) {
-                          const boosted = creatureStrength * (1 + percent / 100);
-                          let units = Math.ceil(monsterMaxHealth / boosted);   
+                            if (units > 500) return '<span style="color:red;">✖</span>';
 
-                          if (units < 1) return 1;
-                          if (units > 500) return '<span style="color:red;">✖</span>';
-
-                          return units.toLocaleString();
-                      }
-                        /**
-                         * Calculates expected creature losses vs monster.
-                         * 
-                         * @param {number} creatureHealth - single creature HP
-                         * @param {number} percent - percent boost (0,200,400,...)
-                         * @param {number} monsterMaxStrength - total monster HP to fight
-                         * @param {number} units - number of creatures sent
-                         * @returns {string|number} - losses as rounded number or red ✖
-                         */
+                              return units.toLocaleString();
+                        }
 
                         function calcLosses(creatureHealth, percent = 0, units) {
                             const boostedHP = creatureHealth * (1 + percent / 100) * units;
                             const diff = monsterMaxStrength - boostedHP;
+
+                            /* ❌ catch bad inputs → show red X
+                            if (units <= 0) {
+                                return '<span style="color:red;">✖</span>';
+                            }*/
+
                             if (diff >= boostedHP) {
                                 if (monsterMaxStrength >= boostedHP) {
                                     // how many creatures die
                                     const spend = Math.ceil(monsterMaxStrength / creatureHealth);
-                                    return `<span style="color:red;">${spend}</span>`;
+                                      return `<span style="color:red;">${spend}</span>`;
                                 }
                             }
+
                             if (diff <= 0) {
-                                // Creature survives completely → GREEN 0
-                                return '<span style="color:green;">NONE</span>';
+                                  // Creature survives completely → GREEN 0
+                                  return '<span style="color:green;">NONE</span>';
                             }
+
                             // Partial losses: how many creatures "die" to cover the diff
                             const loss = Math.ceil(diff / creatureHealth);
-                            // Never exceed the units sent
-                            return Math.min(loss, units).toLocaleString();
+
+                              // Never exceed the units sent
+                              return Math.min(loss, units).toLocaleString();
                         }
-                      /* ------------------ RENDER ------------------ */
 
-                      function renderCreature(i) {
-                          const creature = attackGroups[i][0];
-                          if (!creature) return;
+                        /* ------------------ RENDER ------------------ */
+                        function renderCreature(i) {
+                            const creature = attackGroups[i][0];
+                            if (!creature) return;
 
-                          const bonusParts = Object.entries(creature.bonuses || {}).map(
-                              ([type, val]) => `${type.toLowerCase()} +${Number(val).toLocaleString()}%`
-                          ).join(' &nbsp;|&nbsp; ');
+                            const bonusParts = Object.entries(creature.bonuses || {}).map(
+                                ([type, val]) => `${type.toLowerCase()} +${Number(val).toLocaleString()}%`
+                            ).join(' &nbsp;|&nbsp; ');
 
-                          const levels = [0,200,400,600,800,1000,1200];
+                            const levels = [0,200,400,600,800,1000,1200];
 
-                          let strRow = '';
-                          let hlhRow = '';
+                            let strRow = '';
+                            let hlhRow = '';
 
-                          levels.forEach(p => {
-                              const units = calcUnitsNeeded(creature.strength, p);
-                              const losses = calcLosses(creature.health, units, p);
+                            levels.forEach(p => {
+                                const units = calcUnitsNeeded(creature.strength, p);
+                                const losses = calcLosses(creature.health, units, p);
 
-                              strRow += `<td>${units}</td>`;
-                              hlhRow += `<td>${losses}</td>`;
-                          });
+                                strRow += `<td>${units}</td>`;
+                                hlhRow += `<td>${losses}</td>`;
+                            });
 
-                          const html = `
-                              <div class="creature-text-block" style="display:flex; gap:15px; align-items:flex-start; padding-left:8px;">
-                                  
-                                  <div class="creature-image-container">
-                                      <img src="${creature.imgpath}" class="creature-img" style="max-width:120px;">
-                                  </div>
+                            const html = `
+                                <div class="creature-text-block" style="display:flex; gap:15px; align-items:flex-start; padding-left:8px;">
+                                    
+                                    <div class="creature-image-container">
+                                        <img src="${creature.imgpath}" class="creature-img" style="max-width:120px;">
+                                    </div>
 
-                                  <div style="flex-grow:1;">
-                                      <div class="formation-text-top">
-                                          <h3>Formation #${creature.formation_no} | ${creature.name} (${creature.type})</h3>
-                                      </div>
+                                    <div style="flex-grow:1;">
+                                        <div class="formation-text-top">
+                                            <h3>Formation #${creature.formation_no} | ${creature.name} (${creature.type})</h3>
+                                        </div>
 
-                                      <div class="formation-text-middle">Bonus Mods: 
-                                          <div class="focus-pill">
-                                              ${bonusParts}
-                                          </div>
-                                      </div>
+                                        <div class="formation-text-middle">Bonus Mods: 
+                                            <div class="focus-pill">
+                                                ${bonusParts}
+                                            </div>
+                                        </div>
 
-                                      <div class="formation-text-bottom">
-                                          Base Str: ${Number(creature.strength).toLocaleString()}
-                                          &nbsp;|&nbsp;
-                                          Base Hth: ${Number(creature.health).toLocaleString()}
-                                      </div>
-                                  </div>
-                              </div>
+                                        <div class="formation-text-bottom">
+                                            Base Str: ${Number(creature.strength).toLocaleString()}
+                                            &nbsp;|&nbsp;
+                                            Base Hth: ${Number(creature.health).toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
 
-                              <div class="monster-grid" style="margin-top:15px;">
-                                  <table class="bonus-grid">
-                                      <thead>
-                                          <tr>
-                                              <th>${creature.name}</th>
-                                              <th>Base</th>
-                                              <th>200%</th>
-                                              <th>400%</th>
-                                              <th>600%</th>
-                                              <th>800%</th>
-                                              <th>1000%</th>
-                                              <th>1200%</th>
-                                          </tr>
-                                      </thead>
-                                      <tbody>
-                                          <tr>
-                                              <td>Units to Send (STR)</td>
-                                              ${strRow}
-                                          </tr>
-                                          <tr>
-                                              <td>Expected Losses (HTH)</td>
-                                              ${hlhRow}
-                                          </tr>
-                                      </tbody>
-                                  </table>
-                              </div>
-                          `;
+                                <div class="monster-grid" style="margin-top:15px;">
+                                    <table class="bonus-grid">
+                                        <thead>
+                                            <tr>
+                                                <th>${creature.name}</th>
+                                                <th>Base</th>
+                                                <th>200%</th>
+                                                <th>400%</th>
+                                                <th>600%</th>
+                                                <th>800%</th>
+                                                <th>1000%</th>
+                                                <th>1200%</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Units to Send (STR)</td>
+                                                ${strRow}
+                                            </tr>
+                                            <tr>
+                                                <td>Expected Losses (HTH)</td>
+                                                ${hlhRow}
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
 
-                          document.getElementById('creatureDisplay').innerHTML = html;
-                      }
+                            document.getElementById('creatureDisplay').innerHTML = html;
+                        }
 
-                      /* ------------------ NAV ------------------ */
+                        /* ------------------ NAV ------------------ */
 
-                      document.getElementById('next').onclick = () => {
-                          currentIndex = (currentIndex + 1) % attackGroups.length;
-                          renderCreature(currentIndex);
-                      };
+                        document.getElementById('next').onclick = () => {
+                            currentIndex = (currentIndex + 1) % attackGroups.length;
+                            renderCreature(currentIndex);
+                        };
 
-                      document.getElementById('prev').onclick = () => {
-                          currentIndex = (currentIndex - 1 + attackGroups.length) % attackGroups.length;
-                          renderCreature(currentIndex);
-                      };
+                        document.getElementById('prev').onclick = () => {
+                            currentIndex = (currentIndex - 1 + attackGroups.length) % attackGroups.length;
+                            renderCreature(currentIndex);
+                        };
 
-                      /* ------------------ INIT ------------------ */
+                        /* ------------------ INIT ------------------ */
 
-                      renderCreature(currentIndex);
-                    </script>
-          </div>
-          <?php else: ?>
-              <p>No creatures found.</p>
-          <?php endif; ?>
-        </div>
-      </div>
-    </div>
-
-    <div class="row">     <!-- Buttons -->
-      <div class="col-12">
-        <div class="card">
-            <!--Monster Counter Bar--> 
-            <?php if(!empty($counterSignal)): ?>
-              <hr style="margin:15px 0;">
-              <div class="counter-bar">
-                <?php foreach($counterSignal as $t=>$c): ?>
-                  <span class="counter <?=$c?>"><?=$t?></span>
-                <?php endforeach; ?>
-              </div>
+                        renderCreature(currentIndex);
+                      </script>
+            </div>
+            <?php else: ?>
+                <p>No creatures found.</p>
             <?php endif; ?>
+          </div>
         </div>
       </div>
+
+      <div class="row">     <!-- Buttons -->
+        <div class="col-12">
+          <div class="card">
+              <!--Monster Counter Bar--> 
+              <?php if(!empty($counterSignal)): ?>
+                <hr style="margin:15px 0;">
+                <div class="counter-bar">
+                  <?php foreach($counterSignal as $t=>$c): ?>
+                    <span class="counter <?=$c?>"><?=$t?></span>
+                  <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ROW (Spacer) -->
+      <div class="row" style="min-height:240px;"></div>
+
+    <?php endif; ?> <!-- end squad form -->
     </div>
-
-
-    <!-- ROW (Spacer) -->
-    <div class="row" style="min-height:240px;"></div>
-
-  <?php endif; ?> <!-- end squad form -->
   </div>
-</main>
 
-<script>
-  window.currentGroup = 0;
-  window.attackGroups = <?= json_encode($attackGroups) ?>;
+  <script>
 
-    const attackGroups = <?= json_encode($attackGroups) ?>;
-    document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('click', async function(e) {
+    // Clear button (in results or in clan list)
+    if (e.target.matches('.clear-btn') || e.target.matches('[data-clear-results]')) {
+      const results = document.getElementById('results');
+      if (results) results.innerHTML = '';
+      return;
+    }
 
-      const checkboxes = document.querySelectorAll(
-        'input[name="useFighters"], input[name="useCreatures"]'
-      );
+    // Show clan members (delegated handler for dynamic content)
+    if (e.target.matches('.show-members-btn')) {
+      const clanId = e.target.dataset.clanId;
+      if (!clanId) return;
 
-      const button = document.getElementById('buildPlanBtn');
-      const hint = document.getElementById('unitHint');
-
-      function updateButtonState() {
-        const isChecked = [...checkboxes].some(cb => cb.checked);
-
-        if (button) button.disabled = !isChecked;
-        if (hint) hint.style.display = isChecked ? 'none' : 'block';
+      const results = document.getElementById('results');
+      if (!results) {
+        console.error('#results element not found');
+        return;
       }
 
-      updateButtonState();
-      checkboxes.forEach(cb => cb.addEventListener('change', updateButtonState));
+      // Visual feedback
+      const originalText = e.target.textContent;
+      e.target.textContent = 'Loading...';
+      e.target.disabled = true;
 
-    });
+      try {
+        const res = await fetch('get_clan_members.php?clan_id=' + encodeURIComponent(clanId));
+        if (!res.ok) throw new Error('Network response not OK: ' + res.status);
+        const html = await res.text();
+        results.innerHTML = html;
+      } catch (err) {
+        console.error(err);
+        results.innerHTML = '<p style="color:red">Error loading members. See console.</p>';
+      } finally {
+        e.target.textContent = originalText;
+        e.target.disabled = false;
+      }
+    }
+  });
 
-    document.querySelectorAll('.add-attack').forEach(btn=>{
+    window.currentGroup = 0;
+    window.attackGroups = <?= json_encode($attackGroups) ?>;
 
-    btn.addEventListener('click',function(){
+      const attackGroups = <?= json_encode($attackGroups) ?>;
+      document.addEventListener('DOMContentLoaded', () => {
 
-    const type=this.dataset.type;
-    const table=this.closest('.metric-card').querySelector('.metric-table');
+        const checkboxes = document.querySelectorAll(
+          'input[name="useFighters"], input[name="useCreatures"]'
+        );
 
-      fetch("includes/add_attack.php",{
-      method:"POST",
-      headers:{
-      "Content-Type":"application/json"
-      },
-      body:JSON.stringify({type:type})
-      })
-      .then(r=>r.json())
-      .then(data=>{
+        const button = document.getElementById('buildPlanBtn');
+        const hint = document.getElementById('unitHint');
 
-      const row=document.createElement("div");
-      row.className="metric-row";
-      row.dataset.id=data.id;
+        function updateButtonState() {
+          const isChecked = [...checkboxes].some(cb => cb.checked);
 
-      row.innerHTML=`
-        <select class="lvl"></select>
-
-        <span class="type">${type=='Common'?'C':'R'}</span>
-
-        <select class="squad">
-        <option value="">Select Squad</option>
-          <?= $squadOptions ?>
-        </select>
-
-        <input class="troops" value="0">
-
-        <select class="unit">
-        <option value="1">Ruby Golem</option>
-        </select>
-
-        <select class="capt">
-        <option value="1">Capt 1</option>
-        </select>
-
-        <span class="actions">
-        <span class="edit">✏️</span>
-        <span class="delete">✖</span>
-        </span>
-      `;
-      const lvlSelect = row.querySelector('.lvl');
-
-        for(let i=1;i<=40;i++){
-          const opt=document.createElement('option');
-          opt.value=i;
-          opt.textContent=i;
-          lvlSelect.appendChild(opt);
+          if (button) button.disabled = !isChecked;
+          if (hint) hint.style.display = isChecked ? 'none' : 'block';
         }
-        table.appendChild(row);
+
+        updateButtonState();
+        checkboxes.forEach(cb => cb.addEventListener('change', updateButtonState));
+
+      });
+
+      document.querySelectorAll('.add-attack').forEach(btn=>{
+
+      btn.addEventListener('click',function(){
+
+      const type=this.dataset.type;
+      const table=this.closest('.metric-card').querySelector('.metric-table');
+
+        fetch("includes/add_attack.php",{
+        method:"POST",
+        headers:{
+        "Content-Type":"application/json"
+        },
+        body:JSON.stringify({type:type})
+        })
+        .then(r=>r.json())
+        .then(data=>{
+
+        const row=document.createElement("div");
+        row.className="metric-row";
+        row.dataset.id=data.id;
+
+        row.innerHTML=`
+          <select class="lvl"></select>
+
+          <span class="type">${type=='Common'?'C':'R'}</span>
+
+          <select class="squad">
+          <option value="">Select Squad</option>
+            <?= $squadOptions ?>
+          </select>
+
+          <input class="troops" value="0">
+
+          <select class="unit">
+          <option value="1">Ruby Golem</option>
+          </select>
+
+          <select class="capt">
+          <option value="1">Capt 1</option>
+          </select>
+
+          <span class="actions">
+          <span class="edit">✏️</span>
+          <span class="delete">✖</span>
+          </span>
+        `;
+        const lvlSelect = row.querySelector('.lvl');
+
+          for(let i=1;i<=40;i++){
+            const opt=document.createElement('option');
+            opt.value=i;
+            opt.textContent=i;
+            lvlSelect.appendChild(opt);
+          }
+          table.appendChild(row);
+
+          });
 
         });
 
       });
 
-    });
+      document.addEventListener('change',function(e){
 
-    document.addEventListener('change',function(e){
+      if(e.target.classList.contains('squad')){
 
-    if(e.target.classList.contains('squad')){
+      const row=e.target.closest('.metric-row');
+      const lvl=row.querySelector('.lvl');
 
-    const row=e.target.closest('.metric-row');
-    const lvl=row.querySelector('.lvl');
+      const squadLevel=e.target.options[e.target.selectedIndex].dataset.level;
 
-    const squadLevel=e.target.options[e.target.selectedIndex].dataset.level;
+      if(squadLevel){
+      lvl.value=squadLevel;
+      }
 
-    if(squadLevel){
-    lvl.value=squadLevel;
-    }
+      }
 
-    }
-
-    });
+      });
 
 
 
-    // init first creature
-    if(attackGroups.length) renderGroup(0);
+      // init first creature
+      if(attackGroups.length) renderGroup(0);
 
-    // 🔹 BUTTONS
-    document.getElementById('groupPrev')?.addEventListener('click', () => {
-        currentGroup = (currentGroup - 1 + attackGroups.length) % attackGroups.length;
-        renderGroup(currentGroup);
-    });
+      // 🔹 BUTTONS
+      document.getElementById('groupPrev')?.addEventListener('click', () => {
+          currentGroup = (currentGroup - 1 + attackGroups.length) % attackGroups.length;
+          renderGroup(currentGroup);
+      });
 
-    document.getElementById('groupNext')?.addEventListener('click', () => {
-        currentGroup = (currentGroup + 1) % attackGroups.length;
-        renderGroup(currentGroup);
-    });
+      document.getElementById('groupNext')?.addEventListener('click', () => {
+          currentGroup = (currentGroup + 1) % attackGroups.length;
+          renderGroup(currentGroup);
+      });
 
-    /* -----------------------------
-    GLOBAL CLICK HANDLER
-    handles edit/delete on new rows
-    ------------------------------*/
+      /* -----------------------------
+      GLOBAL CLICK HANDLER
+      handles edit/delete on new rows
+      ------------------------------*/
 
-    document.addEventListener('click',function(e){
+      document.addEventListener('click',function(e){
 
-    /* DELETE */
+      /* DELETE */
 
-    if(e.target.classList.contains('delete')){
+      if(e.target.classList.contains('delete')){
 
-    const row=e.target.closest('.metric-row');
-    const id=row.dataset.id;
+      const row=e.target.closest('.metric-row');
+      const id=row.dataset.id;
 
-    if(!confirm("Delete this attack?")) return;
+      if(!confirm("Delete this attack?")) return;
 
-    fetch("includes/delete_attack.php",{
-    method:"POST",
-    headers:{
-    "Content-Type":"application/x-www-form-urlencoded"
-    },
-    body:"id="+id
-    })
-    .then(()=>row.remove());
+      fetch("includes/delete_attack.php",{
+      method:"POST",
+      headers:{
+      "Content-Type":"application/x-www-form-urlencoded"
+      },
+      body:"id="+id
+      })
+      .then(()=>row.remove());
 
-    }
+      }
 
-    /* EDIT / SAVE */
+      /* EDIT / SAVE */
 
-    if(e.target.classList.contains('edit')){
+      if(e.target.classList.contains('edit')){
 
-    const row=e.target.closest('.metric-row');
+      const row=e.target.closest('.metric-row');
 
-    const data={
-      id:row.dataset.id,
-      squadID:row.querySelector('.squad').value,
-      level:row.querySelector('.lvl').value,
-      troops:row.querySelector('.troops').value,
-      loss:row.querySelector('.loss').value  ,
-      name:row.querySelector('.name').value      
-    };
+      const data={
+        id:row.dataset.id,
+        squadID:row.querySelector('.squad').value,
+        level:row.querySelector('.lvl').value,
+        troops:row.querySelector('.troops').value,
+        loss:row.querySelector('.loss').value  ,
+        name:row.querySelector('.name').value      
+      };
 
-    fetch("includes/update_attack.php",{
-    method:"POST",
-    headers:{
-    "Content-Type":"application/json"
-    },
-    body:JSON.stringify(data)
-    })
-    .then(r=>r.text())
-    .then(res=>{
-    console.log(res);
-    alert("Saved");
-    });
+      fetch("includes/update_attack.php",{
+      method:"POST",
+      headers:{
+      "Content-Type":"application/json"
+      },
+      body:JSON.stringify(data)
+      })
+      .then(r=>r.text())
+      .then(res=>{
+      console.log(res);
+      alert("Saved");
+      });
 
-    }
+      }
 
-    });
+      });
 
-  </script>
-<?php include 'includes/footer.php'; ?>
+    </script>
+  <?php include __DIR__ .  '/includes/footer.php'; ?>
+  </body>
+</html>
